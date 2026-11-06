@@ -14,7 +14,7 @@ Due Date: Week of Nov 16, 2026
 from pyswip import *
 
 
-Prolog.asssertz("location(source(a),destination(b),distance(5),time(10),type(paved),special(none),status(open))")
+Prolog.assertz("location(source(a),destination(b),distance(5),time(10),type(paved),special(none),status(open))")
 Prolog.assertz("location(source(b),destination(c),distance(3),time(15),type(unpaved),special(broken_cisterns),status(open))")
 Prolog.assertz("location(source(c),destination(d),distance(7),time(12),type(paved),special(deep_potholes),status(closed))")
 
@@ -22,31 +22,7 @@ from tkinter import *
 from tkinter.messagebox import showinfo
 from tkinter.ttk import *
 
-"""
-# Form fields
-fields = [
-    "Source",
-    "Destination",
-    "Distance (In Kilometers)",
-    "Travel Time (Mins)",
-    "Road Type",
-    "Special Condition",
-    "Road Status",
-]
 
-# Dropdown options
-road_type_options = [
-    "Paved", "Unpaved","Seasonally Blocked", "One Way"
-]
-
-road_status_options = [
-    "Open", "Closed"
-]
-
-special_condition_options = [
-    "None","Broken Cisterns", "Severely Damaged Road", "Blocked Road", "Deep Potholes", "Falling Rocks"
-]
-"""
 
 def login_window():
     # Create the main window
@@ -122,7 +98,7 @@ def main_window():
 
     # Dropdown options
     road_type_options = [
-        "Paved", "Unpaved"
+        "Paved", "Unpaved","Seasonally Blocked", "One Way"
     ]
 
     road_status_options = [
@@ -130,17 +106,17 @@ def main_window():
     ]
 
     special_condition_options = [
-        "None","Broken Cisterns", "Deep Potholes"
+        "None","Broken Cisterns", "Severely Damaged Road", "Blocked Road", "Deep Potholes", "Falling Rocks"
     ]
 
     for i, field in enumerate(fields):
 
-        label = ttk.Label(form_frame, text=field + ":")
+        label = Label(form_frame, text=field + ":")
         label.grid(row=i, column=0, padx=10, pady=10, sticky="w")
 
         # Create dropdowns for specific fields
         if field == "Road Type":
-            entry = ttk.Combobox(
+            entry = Combobox(
                 form_frame,
                 values=road_type_options,
                 width=32,
@@ -148,7 +124,7 @@ def main_window():
             )
 
         elif field == "Road Status":
-            entry = ttk.Combobox(
+            entry = Combobox(
                 form_frame,
                 values=road_status_options,
                 width=32,
@@ -156,14 +132,14 @@ def main_window():
             )
 
         elif field == "Special Condition":
-            entry = ttk.Combobox(
+            entry = Combobox(
                 form_frame,
                 values=special_condition_options,
                 width=32,
                 state="readonly"
             )
         elif field == "Distance (In Kilometers)":
-            entry = ttk.Spinbox(
+            entry = Spinbox(
                 form_frame,
                 from_=0.1,
                 to=1000,
@@ -172,7 +148,7 @@ def main_window():
         )
             
         elif field == "Travel Time (Mins)":
-            entry = ttk.Spinbox(
+            entry = Spinbox(
                 form_frame,
                 from_=1,
                 to=1440,
@@ -180,14 +156,14 @@ def main_window():
                 width=33
             )
         else:
-            entry = ttk.Entry(form_frame, width=35)
+            entry = Entry(form_frame, width=35)
 
         entry.grid(row=i, column=1, padx=10, pady=10)
 
         entries[field] = entry
         
             
-    submit_button = ttk.Button(
+    submit_button = Button(
         form_frame,
         text="Submit",
         command=submit_form
