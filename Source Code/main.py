@@ -11,8 +11,13 @@ Due Date: Week of Nov 16, 2026
 
 
 """
-#import pyswip
-#from pyswip import Prolog
+from pyswip import *
+
+
+Prolog.asssertz("location(source(a),destination(b),distance(5),time(10),type(paved),special(none),status(open))")
+Prolog.assertz("location(source(b),destination(c),distance(3),time(15),type(unpaved),special(broken_cisterns),status(open))")
+Prolog.assertz("location(source(c),destination(d),distance(7),time(12),type(paved),special(deep_potholes),status(closed))")
+
 from tkinter import *
 from tkinter.messagebox import showinfo
 from tkinter.ttk import *
