@@ -63,7 +63,7 @@ def login_window():
     password_entry.pack()
 
     # Create and place the login button
-    login_button = Button(parent, text="Login", command=lambda: login(username_entry.get(), password_entry.get()))
+    login_button = Button(parent, text="Login", command=lambda: login(username_entry.get(), password_entry.get(), parent))
     login_button.pack()
 
     # Start the Tkinter event loop
