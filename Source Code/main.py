@@ -31,7 +31,7 @@ fields = [
 
 # Dropdown options
 road_type_options = [
-    "Paved", "Unpaved"
+    "Paved", "Unpaved","Seasonally Blocked", "One Way"
 ]
 
 road_status_options = [
@@ -39,7 +39,7 @@ road_status_options = [
 ]
 
 special_condition_options = [
-    "None","Broken Cisterns", "Deep Potholes"
+    "None","Broken Cisterns", "Severely Damaged Road", "Blocked Road", "Deep Potholes", "Falling Rocks"
 ]
 """
 
