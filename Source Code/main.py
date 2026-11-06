@@ -25,9 +25,9 @@ import os
 print(os.getcwd())
 # File path
 default_road_network_data = [
-    "location(source(a),destination(b),distance(5),time(10),type(paved),special(none),status(open))",
-    "location(source(b),destination(c),distance(3),time(15),type(unpaved),special(broken_cisterns),status(open))",
-    "location(source(c),destination(d),distance(7),time(12),type(paved),special(deep_potholes),status(closed))"
+    "location(source(a),destination(b),distance(5),time(10),type(paved),special(none),status(open)).",
+    "location(source(b),destination(c),distance(3),time(15),type(unpaved),special(broken_cisterns),status(open)).",
+    "location(source(c),destination(d),distance(7),time(12),type(paved),special(deep_potholes),status(closed))."
 ]
 file_path = Path("road_network.pl")
 
@@ -86,7 +86,7 @@ def main_window():
     frame1 = Frame(notebook)
     frame2 = Frame(notebook)
 
-    notebook.add(frame1, text='Network Input')
+    notebook.add(frame1, text='Add New Location')
     notebook.add(frame2, text='Profile')
 
     # -----------------------------
@@ -193,7 +193,7 @@ def main_window():
     # PROFILE TAB
     # -----------------------------
 
-    profile_label = ttk.Label(
+    profile_label = Label(
         frame2,
         text="User Profile",
         font=("Arial", 16, "bold")
@@ -203,10 +203,32 @@ def main_window():
 
 # Submit button
 def submit_form():
-    print("Network Information:")
+    source = entries["Source"].get().lower()
+    destination = entries["Destination"].get().lower()
+    distance = entries["Distance (In Kilometers)"].get()
+    travel_time = entries["Travel Time (Mins)"].get()
+    road_type = entries["Road Type"].get().lower().replace(" ", "_")
+    special = entries["Special Condition"].get().lower().replace(" ", "_")
+    status = entries["Road Status"].get().lower()
 
-    for field, entry in entries.items():
-        print(field, ":", entry.get())
+    # Create Prolog fact
+    fact = (
+        f"location(source({source}),"
+        f"destination({destination}),"
+        f"distance({distance}),"
+        f"time({travel_time}),"
+        f"type({road_type}),"
+        f"special({special}),"
+        f"status({status}))."
+    )
+
+    # Write to file
+    with open(file_path, "a") as file:
+        file.write(fact + "\n")
+    
+    print("Successfully Added New Location: ", fact)
+
+    showinfo("Success", "Road network data saved.")
 
 
 def login(username, password, window):
