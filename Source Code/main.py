@@ -14,15 +14,33 @@ Due Date: Week of Nov 16, 2026
 from pyswip import *
 
 
-Prolog.assertz("location(source(a),destination(b),distance(5),time(10),type(paved),special(none),status(open))")
-Prolog.assertz("location(source(b),destination(c),distance(3),time(15),type(unpaved),special(broken_cisterns),status(open))")
-Prolog.assertz("location(source(c),destination(d),distance(7),time(12),type(paved),special(deep_potholes),status(closed))")
+
 
 from tkinter import *
 from tkinter.messagebox import showinfo
 from tkinter.ttk import *
+from pathlib import Path
+import os
 
+print(os.getcwd())
+# File path
+default_road_network_data = [
+    "location(source(a),destination(b),distance(5),time(10),type(paved),special(none),status(open))",
+    "location(source(b),destination(c),distance(3),time(15),type(unpaved),special(broken_cisterns),status(open))",
+    "location(source(c),destination(d),distance(7),time(12),type(paved),special(deep_potholes),status(closed))"
+]
+file_path = Path("road_network.pl")
 
+# Check if the file exists
+if file_path.exists():
+    print("Loaded: Road Network Data")
+else:
+    f = open(file_path, "x")
+
+    with open(file_path, "w") as file:
+        for line in default_road_network_data:
+            file.write(line + "\n")
+    print("Creation: Default Road Network Data")
 
 def login_window():
     # Create the main window
