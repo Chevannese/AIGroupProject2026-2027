@@ -23,6 +23,10 @@ from pathlib import Path
 import os
 import re
 
+
+PENALTY_CONDITIONS = {"broken_cisterns", "deep_potholes"}
+PENALTY_MINUTES = 5
+
 COLUMNS = ("Source", "Destination", "Distance", "Time", "Type", "Special", "Status")
 
 # Dropdown values for the editable table (stored in Prolog format)
@@ -33,6 +37,8 @@ DROPDOWNS = {
     "Status": ["open", "closed"],
 }
 
+
+
 FACT_PATTERN = re.compile(
     r"location\(source\((.*?)\),destination\((.*?)\),distance\((.*?)\),"
     r"time\((.*?)\),type\((.*?)\),special\((.*?)\),status\((.*?)\)\)\."
@@ -40,6 +46,8 @@ FACT_PATTERN = re.compile(
 
 tree = None  # set when the Update Network tab is built
 
+def fmt_time(t):
+    return int(t) if float(t) == int(t) else float(t)
 
 def load_road_data():
     rows = []
@@ -90,17 +98,43 @@ def delete_selected():
         tree.delete(iid)
 
 
+active_editor = None
+
+
+def apply_special_change(iid, old_special, new_special):
+    """Add/remove the 5-minute penalty when the Special condition changes."""
+    try:
+        t = float(tree.set(iid, "Time"))
+    except ValueError:
+        return
+    if new_special in PENALTY_CONDITIONS and old_special not in PENALTY_CONDITIONS:
+        t += PENALTY_MINUTES
+    elif old_special in PENALTY_CONDITIONS and new_special not in PENALTY_CONDITIONS:
+        t -= PENALTY_MINUTES
+    tree.set(iid, "Time", fmt_time(max(t, 0)))
+
+
+def close_editor(event=None):
+    global active_editor
+    if active_editor is not None and active_editor.winfo_exists():
+        active_editor.destroy()
+    active_editor = None
+
+
 def on_double_click(event):
+    global active_editor
     if tree.identify_region(event.x, event.y) != "cell":
         return
+    close_editor()
+
     iid = tree.identify_row(event.y)
     col = tree.identify_column(event.x)
-    idx = int(col[1:]) - 1
-    name = COLUMNS[idx]
+    name = COLUMNS[int(col[1:]) - 1]
     x, y, w, h = tree.bbox(iid, col)
-    old = tree.set(iid, name)
+    old = str(tree.set(iid, name)).strip()
 
-    if name in DROPDOWNS:
+    is_dropdown = name in DROPDOWNS
+    if is_dropdown:
         editor = Combobox(tree, values=DROPDOWNS[name], state="readonly")
         editor.set(old)
     else:
@@ -108,13 +142,25 @@ def on_double_click(event):
         editor.insert(0, old)
         editor.select_range(0, END)
 
+    active_editor = editor
     editor.place(x=x, y=y, width=w, height=h)
     editor.focus_set()
 
     def commit(e=None):
-        if editor.winfo_exists():
-            tree.set(iid, name, editor.get())
-            editor.destroy()
+        if not editor.winfo_exists():
+            return
+        new = editor.get().strip()
+        if name == "Special" and new != old:
+            apply_special_change(iid, old, new)
+        tree.set(iid, name, new)
+        close_editor()
+
+    editor.bind("<Return>", commit)
+    editor.bind("<Escape>", close_editor)
+    if is_dropdown:
+        editor.bind("<<ComboboxSelected>>", commit)   # commit only on a real selection
+    else:
+        editor.bind("<FocusOut>", commit)             # text cells still commit on click-away
 
     def cancel(e=None):
         if editor.winfo_exists():
@@ -294,9 +340,7 @@ def main_window():
     submit_button.grid(row=len(fields), column=1, pady=20, sticky="e")
 
 
-    # -----------------------------
     # UPDATE NETWORK TABLE
-    # -----------------------------
 
     update_network_label = Label(
         frame2,
@@ -320,6 +364,7 @@ def main_window():
     scroll.pack(side="right", fill="y")
 
     tree.bind("<Double-1>", on_double_click)
+    tree.bind("<Button-1>", close_editor, add="+")
 
     button_frame = Frame(frame2)
     button_frame.pack(pady=10)
