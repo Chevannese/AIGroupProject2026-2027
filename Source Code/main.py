@@ -62,7 +62,7 @@ fields = [
     "Travel Time (Mins)",
     "Road Type",
     "Special Condition",
-    "Road Status"
+    "Road Status",
 ]
 
 # Dropdown options
