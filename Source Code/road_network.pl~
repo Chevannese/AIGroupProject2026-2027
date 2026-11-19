@@ -1,0 +1,23 @@
+:- dynamic road/7.
+road(a,b,5,10,paved,none,open).
+road(b,c,3,15,unpaved,broken_cisterns,open).
+road(c,d,7,12,paved,deep_potholes,closed).
+
+delroad(Source,Destination,Distance,Time,Type,Condition,Status):-
+retract(road(Source,Destination,Distance,Time,Type,Condition,Status)).
+
+addroad(Source,Destination,Distance,Time,Type,Condition,Status):-
+assertz(road(Source,Destination,Distance,Time,Type,Condition,Status)).
+
+prompt:-nl,write('Enter Start Point:'),read(S),
+        nl,write('Enter End Point: '),read(Des),
+        nl,write('Distance (km): '),read(Dis),
+        nl,write('Time (mins): '),read(T),
+        nl,write('Road Type: '),read(Type),
+        nl,write('Special Condition: '),read(C),
+        nl,write('Status: '),read(Stat),
+        addroad(S,Des,Dis,T,Type,C,Stat).
+
+printall:-road(A,B,C,D,E,F,G),
+		write(A),tab(10),write(B),tab(10),write(C),tab(10),write(D)
+	,tab(10),write(E),tab(10),write(F),tab(10),write(G),nl,false.

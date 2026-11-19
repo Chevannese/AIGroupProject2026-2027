@@ -1,0 +1,88 @@
+:- dynamic road/7.
+
+% --- 1. Default Road Facts ---
+% Road(From, To, Distance, Time, Surface, Hazard, Status)
+
+road(a,b,5,10,paved,none,open).
+road(b,c,3,15,unpaved,broken_cisterns,open).
+road(c,d,7,12,paved,deep_potholes,closed).
+
+%--- 2. Basic Operations - Add and Delete Road Facts
+
+%--- 2.1 Add Road
+addroad(Source,Destination,Distance,Time,Type,Condition,Status):-
+assertz(road(Source,Destination,Distance,Time,Type,Condition,Status)).
+
+%--- 2.2 Delete a given Road
+delroad(Source,Destination,Distance,Time,Type,Condition,Status):-
+retract(road(Source,Destination,Distance,Time,Type,Condition,Status)).
+
+%--- 2.3 Delete all Roads
+delallroad:-retractall(road(_,_,_,_,_,_,_)).
+
+%--- Path Finding Algorithms
+
+%--- 3. Dijkstra's Algorithm
+%Shortest Distance on Open Roads
+%Fastest Route on Open Roads
+
+dijkstra_weighted(Start, Goal, Mode, Path, TotalWeight) :-
+    dijkstra_loop([state(0, Start, [Start])], [], Goal, Mode, RevPath, TotalWeight),
+    reverse(RevPath, Path).
+
+dijkstra_loop([state(W, Goal, RevPath) | _], _, Goal, _, RevPath, W) :- !.
+
+dijkstra_loop([state(_, Node, _) | Rest], Visited, Goal, Mode, Path, W) :-
+    member(Node, Visited), !,
+    dijkstra_loop(Rest, Visited, Goal, Mode, Path, W).
+
+dijkstra_loop([state(CurrW, CurrNode, RevPath) | Rest], Visited, Goal, Mode, Path, W) :-
+    findall(
+        state(NextW, NextNode, [NextNode | RevPath]),
+        (
+            road(CurrNode, NextNode, Dist, Time, _, _, open),
+            \+ member(NextNode, Visited),
+            step_weight(Mode, Dist, Time, StepW),
+            StepW >= 0,
+            NextW is CurrW + StepW
+        ),
+        NextStates
+    ),
+    insert_sorted(NextStates, Rest, UpdatedQueue),
+    dijkstra_loop(UpdatedQueue, [CurrNode | Visited], Goal, Mode, Path, W).
+
+step_weight(distance, Dist, _, Dist).
+step_weight(time, _, Time, Time).
+
+%---4. A* Algorithm
+
+
+
+
+%Display all roads
+printall:-road(A,B,C,D,E,F,G),
+         write(A),tab(10),write(B),tab(10),write(C),tab(10),write(D)
+	,tab(10),write(E),tab(10),write(F),tab(10),write(G),nl,false.
+
+prompt:-nl,write('Enter Start Point:'),read(S),
+        nl,write('Enter End Point: '),read(Des),
+        nl,write('Distance (km): '),read(Dis),
+        nl,write('Time (mins): '),read(T),
+        nl,write('Road Type: '),read(Type),
+        nl,write('Special Condition: '),read(C),
+        nl,write('Road Status: '),read(Stat),
+        addroad(S,Des,Dis,T,Type,C,Stat).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
