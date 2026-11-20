@@ -130,8 +130,68 @@ heuristic(Node, Goal, Criterion, H) :-
     ;   min_list(Costs, H)
     ).
 
+% ---5. BFS and DFS Algorithm
+% Loose-Constraint BFS (Traverses Closed Roads if Needed)
+% queue_item(RevPath, DistAcc, TimeAcc)
+% ------------------------------------------------------------
+%--- 5.1 bfs(+Start, +Goal, -Path)
+bfs(Start, Goal, Path) :-
+    bfs_queue([[Start]], Goal, RevPath),
+    reverse(RevPath, Path).
+
+bfs_queue([[Goal | RestPath] | _], Goal, [Goal | RestPath]) :- !.
+bfs_queue([CurrRevPath | RestQueue], Goal, ResultPath) :-
+    CurrRevPath = [CurrNode | _],
+    findall(
+        [NextNode | CurrRevPath],
+        (
+            road(CurrNode, NextNode, _, _, _, _, _),
+            \+ member(NextNode, CurrRevPath)
+        ),
+        NewPaths
+    ),
+    append(RestQueue, NewPaths, NextQueue),
+    bfs_queue(NextQueue, Goal, ResultPath).
+
+%--- 5.2 dfs(+Start, +Goal, -Path)
+dfs(Start, Goal, Path) :-
+    dfs_search(Start, Goal, [Start], RevPath),
+    reverse(RevPath, Path).
+
+dfs_search(Goal, Goal, Visited, Visited) :- !.
+dfs_search(CurrNode, Goal, Visited, ResultPath) :-
+    road(CurrNode, NextNode, _, _, _, _, _),
+    \+ member(NextNode, Visited),
+    dfs_search(NextNode, Goal, [NextNode | Visited], ResultPath).
+
+% --- 6. Priority Queue Helper (Ascending by First Term Argument) ---
+insert_by_first([], Queue, Queue).
+insert_by_first([Item | Items], Queue, Result) :-
+    insert_one(Item, Queue, Temp),
+    insert_by_first(Items, Temp, Result).
+
+insert_one(Item, [], [Item]).
+insert_one(Item1, [Item2 | Rest], [Item1, Item2 | Rest]) :-
+    arg(1, Item1, K1),
+    arg(1, Item2, K2),
+    K1 =< K2, !.
+insert_one(Item, [Head | Rest], [Head | InsertedRest]) :-
+    insert_one(Item, Rest, InsertedRest).
 
 
+% --- 7. Criteria Dispatcher ---
+% find_path(+Criteria, +Start, +Goal, -Path, -Info)
+find_path(shortest_distance, Start, Goal, Path, Distance) :-
+    dijkstra(Start, Goal, Path, Distance).
+
+find_path(terrain_heuristic, Start, Goal, Path, TotalScore) :-
+    astar(Start, Goal, Path, TotalScore).
+
+find_path(loose_bfs, Start, Goal, Path, loose_constraints) :-
+    bfs(Start, Goal, Path).
+
+find_path(loose_dfs, Start, Goal, Path, loose_constraints) :-
+    dfs(Start, Goal, Path).
 
 %Display all roads
 printall:-road(A,B,C,D,E,F,G),

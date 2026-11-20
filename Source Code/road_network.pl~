@@ -1,70 +1,134 @@
 :- dynamic road/7.
 
 % --- 1. Default Road Facts ---
-% Road(From, To, Distance, Time, Surface, Hazard, Status)
+% Road(From, To, Distance, Time, Surface, Hazard, Status, Bidirectional)
 
-road(a,b,5,10,paved,none,open).
-road(b,c,3,15,unpaved,broken_cisterns,open).
-road(c,d,7,12,paved,deep_potholes,closed).
+road(a,b,5,10,paved,none,open,yes).
+road(b,c,3,15,unpaved,broken_cisterns,open,yes).
+road(c,d,7,12,paved,deep_potholes,closed,yes).
 
 %--- 2. Basic Operations - Add and Delete Road Facts
 
 %--- 2.1 Add Road
-addroad(Source,Destination,Distance,Time,Type,Condition,Status):-
-assertz(road(Source,Destination,Distance,Time,Type,Condition,Status)).
+addroad(Source,Destination,Distance,Time,Type,Condition,Status,Bidirectional):-
+assertz(road(Source,Destination,Distance,Time,Type,Condition,Status,Bidirectional)).
 
 %--- 2.2 Delete a given Road
-delroad(Source,Destination,Distance,Time,Type,Condition,Status):-
-retract(road(Source,Destination,Distance,Time,Type,Condition,Status)).
+delroad(Source,Destination,Distance,Time,Type,Condition,Status,Bidirectional):-
+retract(road(Source,Destination,Distance,Time,Type,Condition,Status,Bidirectional)).
 
 %--- 2.3 Delete all Roads
-delallroad:-retractall(road(_,_,_,_,_,_,_)).
+delallroad:-retractall(road(_,_,_,_,_,_,_,_)).
 
 %--- Path Finding Algorithms
 
-%--- 3. Dijkstra's Algorithm
-%Shortest Distance on Open Roads
-%Fastest Route on Open Roads
-
-dijkstra_weighted(Start, Goal, Mode, Path, TotalWeight) :-
-    dijkstra_loop([state(0, Start, [Start])], [], Goal, Mode, RevPath, TotalWeight),
+% ---3.  Dijkstra Algorithm (Shortest Distance / Fastest Route / Open
+% Roads) state(KeyCost, Node, DistAcc, TimeAcc, RevPath)
+dijkstra(Start, Goal, WeightType, Path, TotalDist, TotalTime) :-
+    dijkstra_loop([state(0, Start, 0, 0, [Start])], [], Goal, WeightType, RevPath, TotalDist, TotalTime),
     reverse(RevPath, Path).
 
-dijkstra_loop([state(W, Goal, RevPath) | _], _, Goal, _, RevPath, W) :- !.
+dijkstra_loop([state(_, Goal, D, T, RevPath) | _], _, Goal, _, RevPath, D, T) :- !.
 
-dijkstra_loop([state(_, Node, _) | Rest], Visited, Goal, Mode, Path, W) :-
+dijkstra_loop([state(_, Node, _, _, _) | Rest], Visited, Goal, WeightType, Path, D, T) :-
     member(Node, Visited), !,
-    dijkstra_loop(Rest, Visited, Goal, Mode, Path, W).
+    dijkstra_loop(Rest, Visited, Goal, WeightType, Path, D, T).
 
-dijkstra_loop([state(CurrW, CurrNode, RevPath) | Rest], Visited, Goal, Mode, Path, W) :-
+dijkstra_loop([state(_, CurrNode, CurrD, CurrT, RevPath) | Rest], Visited, Goal, WeightType, Path, D, T) :-
     findall(
-        state(NextW, NextNode, [NextNode | RevPath]),
+        state(NextKey, NextNode, NextD, NextT, [NextNode | RevPath]),
         (
-            road(CurrNode, NextNode, Dist, Time, _, _, open),
+            traverse_road(strict, CurrNode, NextNode, StepD, StepT, _, _, open),
             \+ member(NextNode, Visited),
-            step_weight(Mode, Dist, Time, StepW),
-            StepW >= 0,
-            NextW is CurrW + StepW
+            NextD is CurrD + StepD,
+            NextT is CurrT + StepT,
+            (   WeightType == distance
+            ->  NextKey = NextD
+            ;   NextKey = NextT
+            )
         ),
         NextStates
     ),
-    insert_sorted(NextStates, Rest, UpdatedQueue),
-    dijkstra_loop(UpdatedQueue, [CurrNode | Visited], Goal, Mode, Path, W).
+    insert_sorted(NextStates, Rest, Updated),
+    dijkstra_loop(Updated, [CurrNode | Visited], Goal, WeightType, Path, D, T).
 
-step_weight(distance, Dist, _, Dist).
-step_weight(time, _, Time, Time).
+
 
 %---4. A* Search Algorithm
 
 %---4.1 Terrain & hazard weights for heuristic cost
 
-surface_cost(paved, 0).
-surface_cost(unpaved, 5).
+terrain_penalty(paved, 0).
+terrain_penalty(unpaved, 5).
 
-hazard_cost(none, 0).
-hazard_cost(deep_potholes, 5).
-hazard_cost(broken_cisterns, 8).
-hazard_cost(falling_rocks,10).
+condition_penalty(none, 0).
+condition_penalty(deep_potholes, 5).
+condition_penalty(broken_cisterns, 8).
+condition_penalty(falling_rocks, 20).
+condition_penalty(severely_damaged,15).
+
+% Constraint checks for A* criteria
+allowed_by_criterion(avoid_unpaved, unpaved, _) :- !, fail.
+allowed_by_criterion(avoid_broken_cisterns, _, broken_cisterns) :- !, fail.
+allowed_by_criterion(avoid_deep_potholes, _, deep_potholes) :- !, fail.
+allowed_by_criterion(avoid_falling_rocks, _, falling_rocks) :- !, fail.
+allowed_by_criterion(avoid_severely_damaged, _, severely_damaged) :- !, fail.
+allowed_by_criterion(_, _, _).
+
+%---4.2 A* Search Path Finding
+%(Terrain / Hazard Avoidance + Heuristic)
+% astar_node(FScore, GScore, Node, DistAcc, TimeAcc, RevPath)
+
+astar_avoid(Start, Goal, Criterion, Path, TotalDist, TotalTime) :-
+    heuristic(Start, Goal, Criterion, H0),
+    astar_loop([astar_node(H0, 0, Start, 0, 0, [Start])], [], Goal, Criterion, RevPath, TotalDist, TotalTime),
+    reverse(RevPath, Path).
+
+astar_loop([astar_node(_, _, Goal, D, T, RevPath) | _], _, Goal, _, RevPath, D, T) :- !.
+
+astar_loop([astar_node(_, _, Node, _, _, _) | Rest], Visited, Goal, Criterion, Path, D, T) :-
+    member(Node, Visited), !,
+    astar_loop(Rest, Visited, Goal, Criterion, Path, D, T).
+
+astar_loop([astar_node(_, CurrG, CurrNode, CurrD, CurrT, RevPath) | Rest], Visited, Goal, Criterion, Path, D, T) :-
+    findall(
+        astar_node(NextF, NextG, NextNode, NextD, NextT, [NextNode | RevPath]),
+        (
+            traverse_road(strict, CurrNode, NextNode, StepD, StepT, Type, Cond, open),
+            \+ member(NextNode, Visited),
+            allowed_by_criterion(Criterion, Type, Cond),
+            terrain_penalty(Type, TP),
+            condition_penalty(Cond, CP),
+            StepCost is StepD + TP + CP,
+            NextG is CurrG + StepCost,
+            NextD is CurrD + StepD,
+            NextT is CurrT + StepT,
+            heuristic(NextNode, Goal, Criterion, H),
+            NextF is NextG + H
+        ),
+        NextStates
+    ),
+    insert_sorted(NextStates, Rest, Updated),
+    astar_loop(Updated, [CurrNode | Visited], Goal, Criterion, Path, D, T).
+
+heuristic(Goal, Goal, _, 0) :- !.
+heuristic(Node, Goal, Criterion, H) :-
+    findall(
+        CostEst,
+        (
+            traverse_road(strict, Node, Next, StepD, _, Type, Cond, open),
+            Next \= Goal,
+            allowed_by_criterion(Criterion, Type, Cond),
+            terrain_penalty(Type, TP),
+            condition_penalty(Cond, CP),
+            CostEst is StepD + TP + CP
+        ),
+        Costs
+    ),
+    (   Costs == []
+    ->  H = 0
+    ;   min_list(Costs, H)
+    ).
 
 
 
