@@ -1,13 +1,16 @@
 """
 Project: Path-Finder for Rural Roads Network in Python/Prolog
-Course: CIT3003
+Module Name: Artificial Intelligence
+Module Code: CIT3003
+
 Group Members:
 Chevannese Ellis (2301109),
 Jonathan Blackwood (2306822),
 Daniel Lowe (2300734),
-Jermaine 
+Jermaine Lewis (2307120),
+Tianna Dillion (2205580)
 
-Due Date: Week of Nov 16, 2026
+Due Date: Nov 25, 2026
 
 
 """
