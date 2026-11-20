@@ -1,6 +1,5 @@
 :- dynamic road/8.
 :- multifile road/8.
-
 % --- 1. Default Road Facts ---
 % Road(From, To, Distance, Time, Surface, Hazard, Status, Bidirectional)
 
@@ -45,34 +44,33 @@ traverse_road(loose, X, Y, Dist, Time, Type, Cond, Status) :-
 
 % ---4.  Dijkstra Algorithm (Shortest Distance / Fastest Route / Open
 % Roads) state(KeyCost, Node, DistAcc, TimeAcc, RevPath)
-dijkstra_weighted(Start, Goal, Mode, Path, TotalWeight) :-
-    dijkstra_loop([state(0, Start, [Start])], [], Goal, Mode, RevPath, TotalWeight),
+dijkstra(Start, Goal, WeightType, Path, TotalDist, TotalTime) :-
+    dijkstra_loop([state(0, Start, 0, 0, [Start])], [], Goal, WeightType, RevPath, TotalDist, TotalTime),
     reverse(RevPath, Path).
 
-dijkstra_loop([state(W, Goal, RevPath) | _], _, Goal, _, RevPath, W) :- !.
+dijkstra_loop([state(_, Goal, D, T, RevPath) | _], _, Goal, _, RevPath, D, T) :- !.
 
-dijkstra_loop([state(_, Node, _) | Rest], Visited, Goal, Mode, Path, W) :-
+dijkstra_loop([state(_, Node, _, _, _) | Rest], Visited, Goal, WeightType, Path, D, T) :-
     member(Node, Visited), !,
-    dijkstra_loop(Rest, Visited, Goal, Mode, Path, W).
+    dijkstra_loop(Rest, Visited, Goal, WeightType, Path, D, T).
 
-dijkstra_loop([state(CurrW, CurrNode, RevPath) | Rest], Visited, Goal, Mode, Path, W) :-
+dijkstra_loop([state(_, CurrNode, CurrD, CurrT, RevPath) | Rest], Visited, Goal, WeightType, Path, D, T) :-
     findall(
-        state(NextW, NextNode, [NextNode | RevPath]),
+        state(NextKey, NextNode, NextD, NextT, [NextNode | RevPath]),
         (
-            road(CurrNode, NextNode, Dist, Time, _, _, open),
+            traverse_road(strict, CurrNode, NextNode, StepD, StepT, _, _, open),
             \+ member(NextNode, Visited),
-            step_weight(Mode, Dist, Time, StepW),
-            StepW >= 0,
-            NextW is CurrW + StepW
+            NextD is CurrD + StepD,
+            NextT is CurrT + StepT,
+            (   WeightType == distance
+            ->  NextKey = NextD
+            ;   NextKey = NextT
+            )
         ),
         NextStates
     ),
-    insert_sorted(NextStates, Rest, UpdatedQueue),
-    dijkstra_loop(UpdatedQueue, [CurrNode | Visited], Goal, Mode, Path, W).
-
-step_weight(distance, Dist, _, Dist).
-step_weight(time, _, Time, Time).
-
+    insert_sorted(NextStates, Rest, Updated),
+    dijkstra_loop(Updated, [CurrNode | Visited], Goal, WeightType, Path, D, T).
 
 
 %---5. A* Search Algorithm
@@ -155,34 +153,29 @@ heuristic(Node, Goal, Criterion, H) :-
 % queue_item(RevPath, DistAcc, TimeAcc)
 % ------------------------------------------------------------
 %--- 7.1 bfs(+Start, +Goal, -Path)
-bfs(Start, Goal, Path) :-
-    bfs_queue([[Start]], Goal, RevPath),
+% ------------------------------------------------------------
+% Loose-Constraint BFS (Traverses Closed Roads if Needed)
+% queue_item(RevPath, DistAcc, TimeAcc)
+% ------------------------------------------------------------
+bfs_loose(Start, Goal, Path, TotalDist, TotalTime) :-
+    bfs_loop([queue_item([Start], 0, 0)], Goal, RevPath, TotalDist, TotalTime),
     reverse(RevPath, Path).
 
-bfs_queue([[Goal | RestPath] | _], Goal, [Goal | RestPath]) :- !.
-bfs_queue([CurrRevPath | RestQueue], Goal, ResultPath) :-
-    CurrRevPath = [CurrNode | _],
+bfs_loop([queue_item([Goal | Rest], D, T) | _], Goal, [Goal | Rest], D, T) :- !.
+bfs_loop([queue_item([CurrNode | RestPath], CurrD, CurrT) | QueueRest], Goal, Path, D, T) :-
     findall(
-        [NextNode | CurrRevPath],
+        queue_item([NextNode, CurrNode | RestPath], NextD, NextT),
         (
-            road(CurrNode, NextNode, _, _, _, _, _),
-            \+ member(NextNode, CurrRevPath)
+            traverse_road(loose, CurrNode, NextNode, StepD, StepT, _, _, _),
+            \+ member(NextNode, [CurrNode | RestPath]),
+            NextD is CurrD + StepD,
+            NextT is CurrT + StepT
         ),
-        NewPaths
+        NextItems
     ),
-    append(RestQueue, NewPaths, NextQueue),
-    bfs_queue(NextQueue, Goal, ResultPath).
+    append(QueueRest, NextItems, NextQueue),
+    bfs_loop(NextQueue, Goal, Path, D, T).
 
-%--- 7.2 dfs(+Start, +Goal, -Path)
-dfs(Start, Goal, Path) :-
-    dfs_search(Start, Goal, [Start], RevPath),
-    reverse(RevPath, Path).
-
-dfs_search(Goal, Goal, Visited, Visited) :- !.
-dfs_search(CurrNode, Goal, Visited, ResultPath) :-
-    road(CurrNode, NextNode, _, _, _, _, _),
-    \+ member(NextNode, Visited),
-    dfs_search(NextNode, Goal, [NextNode | Visited], ResultPath).
 
 % --- 8. Priority Queue Helper (Ascending by First Term Argument) ---
 insert_sorted([], Q, Q).
@@ -201,17 +194,30 @@ insert_one(X, [H | Rest], [H | Inserted]) :-
 
 % --- 9. Criteria Dispatcher ---
 % find_path(+Criteria, +Start, +Goal, -Path, -Info)
-find_path(shortest_distance, Start, Goal, Path, Distance) :-
-    dijkstra(Start, Goal, Path, Distance).
+% ------------------------------------------------------------
+% Main Entry Point: find_route(+Criterion, +Start, +Goal, -Path, -TotalDist, -TotalTime)
+% ------------------------------------------------------------
+find_route(shortest_distance, Start, Goal, Path, TotalDist, TotalTime) :-
+    dijkstra(Start, Goal, distance, Path, TotalDist, TotalTime).
 
-find_path(terrain_heuristic, Start, Goal, Path, TotalScore) :-
-    astar(Start, Goal, Path, TotalScore).
+find_route(fastest_route, Start, Goal, Path, TotalDist, TotalTime) :-
+    dijkstra(Start, Goal, time, Path, TotalDist, TotalTime).
 
-find_path(loose_bfs, Start, Goal, Path, loose_constraints) :-
-    bfs(Start, Goal, Path).
+find_route(avoid_closed, Start, Goal, Path, TotalDist, TotalTime) :-
+    dijkstra(Start, Goal, distance, Path, TotalDist, TotalTime).
 
-find_path(loose_dfs, Start, Goal, Path, loose_constraints) :-
-    dfs(Start, Goal, Path).
+find_route(avoid_unpaved, Start, Goal, Path, TotalDist, TotalTime) :-
+    astar_avoid(Start, Goal, avoid_unpaved, Path, TotalDist, TotalTime).
+
+find_route(avoid_broken_cisterns, Start, Goal, Path, TotalDist, TotalTime) :-
+    astar_avoid(Start, Goal, avoid_broken_cisterns, Path, TotalDist, TotalTime).
+
+find_route(avoid_deep_potholes, Start, Goal, Path, TotalDist, TotalTime) :-
+    astar_avoid(Start, Goal, avoid_deep_potholes, Path, TotalDist, TotalTime).
+
+find_route(loose_constraints, Start, Goal, Path, TotalDist, TotalTime) :-
+    bfs_loose(Start, Goal, Path, TotalDist, TotalTime).
+
 
 %Display all roads
 printall:-road(A,B,C,D,E,F,G),
@@ -227,6 +233,20 @@ prompt:-nl,write('Enter Start Point:'),read(S),
         nl,write('Road Status: '),read(Stat),
         nl,write('Bidirectional: '),read(Bi),
         addroad(S,Des,Dis,T,Type,C,Stat,Bi).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
