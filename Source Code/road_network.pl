@@ -1,4 +1,5 @@
-:- dynamic road/7.
+:- dynamic road/8.
+:- multifile road/8.
 
 % --- 1. Default Road Facts ---
 % Road(From, To, Distance, Time, Surface, Hazard, Status, Bidirectional)
@@ -20,43 +21,63 @@ retract(road(Source,Destination,Distance,Time,Type,Condition,Status,Bidirectiona
 %--- 2.3 Delete all Roads
 delallroad:-retractall(road(_,_,_,_,_,_,_,_)).
 
+
+% ---3. Effective Edge Traversal (Handles Bidirectional & Status)
+% ------------------------------------------------------------
+% traverse_road(+Mode, +X, +Y, -Dist, -Time, -Type, -Cond, -Status)
+% Mode = strict : enforces Status = open
+% Mode = loose  : allows traversing closed roads for connectivity checks
+
+traverse_road(strict, X, Y, Dist, Time, Type, Cond, open) :-
+    road(X, Y, Dist, Time, Type, Cond, open, _).
+traverse_road(strict, X, Y, Dist, Time, Type, Cond, open) :-
+    road(Y, X, Dist, Time, Type, Cond, open, yes),
+    \+ road(X, Y, _, _, _, _, _, _).
+
+traverse_road(loose, X, Y, Dist, Time, Type, Cond, Status) :-
+    road(X, Y, Dist, Time, Type, Cond, Status, _).
+traverse_road(loose, X, Y, Dist, Time, Type, Cond, Status) :-
+    road(Y, X, Dist, Time, Type, Cond, Status, yes),
+    \+ road(X, Y, _, _, _, _, _, _).
+
+
 %--- Path Finding Algorithms
 
-% ---3.  Dijkstra Algorithm (Shortest Distance / Fastest Route / Open
+% ---4.  Dijkstra Algorithm (Shortest Distance / Fastest Route / Open
 % Roads) state(KeyCost, Node, DistAcc, TimeAcc, RevPath)
-dijkstra(Start, Goal, WeightType, Path, TotalDist, TotalTime) :-
-    dijkstra_loop([state(0, Start, 0, 0, [Start])], [], Goal, WeightType, RevPath, TotalDist, TotalTime),
+dijkstra_weighted(Start, Goal, Mode, Path, TotalWeight) :-
+    dijkstra_loop([state(0, Start, [Start])], [], Goal, Mode, RevPath, TotalWeight),
     reverse(RevPath, Path).
 
-dijkstra_loop([state(_, Goal, D, T, RevPath) | _], _, Goal, _, RevPath, D, T) :- !.
+dijkstra_loop([state(W, Goal, RevPath) | _], _, Goal, _, RevPath, W) :- !.
 
-dijkstra_loop([state(_, Node, _, _, _) | Rest], Visited, Goal, WeightType, Path, D, T) :-
+dijkstra_loop([state(_, Node, _) | Rest], Visited, Goal, Mode, Path, W) :-
     member(Node, Visited), !,
-    dijkstra_loop(Rest, Visited, Goal, WeightType, Path, D, T).
+    dijkstra_loop(Rest, Visited, Goal, Mode, Path, W).
 
-dijkstra_loop([state(_, CurrNode, CurrD, CurrT, RevPath) | Rest], Visited, Goal, WeightType, Path, D, T) :-
+dijkstra_loop([state(CurrW, CurrNode, RevPath) | Rest], Visited, Goal, Mode, Path, W) :-
     findall(
-        state(NextKey, NextNode, NextD, NextT, [NextNode | RevPath]),
+        state(NextW, NextNode, [NextNode | RevPath]),
         (
-            traverse_road(strict, CurrNode, NextNode, StepD, StepT, _, _, open),
+            road(CurrNode, NextNode, Dist, Time, _, _, open),
             \+ member(NextNode, Visited),
-            NextD is CurrD + StepD,
-            NextT is CurrT + StepT,
-            (   WeightType == distance
-            ->  NextKey = NextD
-            ;   NextKey = NextT
-            )
+            step_weight(Mode, Dist, Time, StepW),
+            StepW >= 0,
+            NextW is CurrW + StepW
         ),
         NextStates
     ),
-    insert_sorted(NextStates, Rest, Updated),
-    dijkstra_loop(Updated, [CurrNode | Visited], Goal, WeightType, Path, D, T).
+    insert_sorted(NextStates, Rest, UpdatedQueue),
+    dijkstra_loop(UpdatedQueue, [CurrNode | Visited], Goal, Mode, Path, W).
+
+step_weight(distance, Dist, _, Dist).
+step_weight(time, _, Time, Time).
 
 
 
-%---4. A* Search Algorithm
+%---5. A* Search Algorithm
 
-%---4.1 Terrain & hazard weights for heuristic cost
+%---5.1 Terrain & hazard weights for heuristic cost
 
 terrain_penalty(paved, 0).
 terrain_penalty(unpaved, 5).
@@ -75,7 +96,7 @@ allowed_by_criterion(avoid_falling_rocks, _, falling_rocks) :- !, fail.
 allowed_by_criterion(avoid_severely_damaged, _, severely_damaged) :- !, fail.
 allowed_by_criterion(_, _, _).
 
-%---4.2 A* Search Path Finding
+%---6.2 A* Search Path Finding
 %(Terrain / Hazard Avoidance + Heuristic)
 % astar_node(FScore, GScore, Node, DistAcc, TimeAcc, RevPath)
 
@@ -129,12 +150,11 @@ heuristic(Node, Goal, Criterion, H) :-
     ->  H = 0
     ;   min_list(Costs, H)
     ).
-
-% ---5. BFS and DFS Algorithm
+% ---7. BFS and DFS Algorithm
 % Loose-Constraint BFS (Traverses Closed Roads if Needed)
 % queue_item(RevPath, DistAcc, TimeAcc)
 % ------------------------------------------------------------
-%--- 5.1 bfs(+Start, +Goal, -Path)
+%--- 7.1 bfs(+Start, +Goal, -Path)
 bfs(Start, Goal, Path) :-
     bfs_queue([[Start]], Goal, RevPath),
     reverse(RevPath, Path).
@@ -153,7 +173,7 @@ bfs_queue([CurrRevPath | RestQueue], Goal, ResultPath) :-
     append(RestQueue, NewPaths, NextQueue),
     bfs_queue(NextQueue, Goal, ResultPath).
 
-%--- 5.2 dfs(+Start, +Goal, -Path)
+%--- 7.2 dfs(+Start, +Goal, -Path)
 dfs(Start, Goal, Path) :-
     dfs_search(Start, Goal, [Start], RevPath),
     reverse(RevPath, Path).
@@ -164,22 +184,22 @@ dfs_search(CurrNode, Goal, Visited, ResultPath) :-
     \+ member(NextNode, Visited),
     dfs_search(NextNode, Goal, [NextNode | Visited], ResultPath).
 
-% --- 6. Priority Queue Helper (Ascending by First Term Argument) ---
-insert_by_first([], Queue, Queue).
-insert_by_first([Item | Items], Queue, Result) :-
-    insert_one(Item, Queue, Temp),
-    insert_by_first(Items, Temp, Result).
+% --- 8. Priority Queue Helper (Ascending by First Term Argument) ---
+insert_sorted([], Q, Q).
+insert_sorted([X | Xs], Q, Out) :-
+    insert_one(X, Q, Temp),
+    insert_sorted(Xs, Temp, Out).
 
-insert_one(Item, [], [Item]).
-insert_one(Item1, [Item2 | Rest], [Item1, Item2 | Rest]) :-
-    arg(1, Item1, K1),
-    arg(1, Item2, K2),
+insert_one(X, [], [X]).
+insert_one(X1, [X2 | Rest], [X1, X2 | Rest]) :-
+    arg(1, X1, K1),
+    arg(1, X2, K2),
     K1 =< K2, !.
-insert_one(Item, [Head | Rest], [Head | InsertedRest]) :-
-    insert_one(Item, Rest, InsertedRest).
+insert_one(X, [H | Rest], [H | Inserted]) :-
+    insert_one(X, Rest, Inserted).
 
 
-% --- 7. Criteria Dispatcher ---
+% --- 9. Criteria Dispatcher ---
 % find_path(+Criteria, +Start, +Goal, -Path, -Info)
 find_path(shortest_distance, Start, Goal, Path, Distance) :-
     dijkstra(Start, Goal, Path, Distance).
@@ -205,7 +225,8 @@ prompt:-nl,write('Enter Start Point:'),read(S),
         nl,write('Road Type: '),read(Type),
         nl,write('Special Condition: '),read(C),
         nl,write('Road Status: '),read(Stat),
-        addroad(S,Des,Dis,T,Type,C,Stat).
+        nl,write('Bidirectional: '),read(Bi),
+        addroad(S,Des,Dis,T,Type,C,Stat,Bi).
 
 
 
