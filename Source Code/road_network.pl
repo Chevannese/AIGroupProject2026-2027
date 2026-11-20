@@ -1,24 +1,24 @@
 :- dynamic road/7.
 
 % --- 1. Default Road Facts ---
-% Road(From, To, Distance, Time, Surface, Hazard, Status)
+% Road(From, To, Distance, Time, Surface, Hazard, Status, Bidirectional)
 
-road(a,b,5,10,paved,none,open).
-road(b,c,3,15,unpaved,broken_cisterns,open).
-road(c,d,7,12,paved,deep_potholes,closed).
+road(a,b,5,10,paved,none,open,yes).
+road(b,c,3,15,unpaved,broken_cisterns,open,yes).
+road(c,d,7,12,paved,deep_potholes,closed,yes).
 
 %--- 2. Basic Operations - Add and Delete Road Facts
 
 %--- 2.1 Add Road
-addroad(Source,Destination,Distance,Time,Type,Condition,Status):-
-assertz(road(Source,Destination,Distance,Time,Type,Condition,Status)).
+addroad(Source,Destination,Distance,Time,Type,Condition,Status,Bidirectional):-
+assertz(road(Source,Destination,Distance,Time,Type,Condition,Status,Bidirectional)).
 
 %--- 2.2 Delete a given Road
-delroad(Source,Destination,Distance,Time,Type,Condition,Status):-
-retract(road(Source,Destination,Distance,Time,Type,Condition,Status)).
+delroad(Source,Destination,Distance,Time,Type,Condition,Status,Bidirectional):-
+retract(road(Source,Destination,Distance,Time,Type,Condition,Status,Bidirectional)).
 
 %--- 2.3 Delete all Roads
-delallroad:-retractall(road(_,_,_,_,_,_,_)).
+delallroad:-retractall(road(_,_,_,_,_,_,_,_)).
 
 %--- Path Finding Algorithms
 
@@ -26,38 +26,20 @@ delallroad:-retractall(road(_,_,_,_,_,_,_)).
 %Shortest Distance on Open Roads
 %Fastest Route on Open Roads
 
-dijkstra_weighted(Start, Goal, Mode, Path, TotalWeight) :-
-    dijkstra_loop([state(0, Start, [Start])], [], Goal, Mode, RevPath, TotalWeight),
-    reverse(RevPath, Path).
-
-dijkstra_loop([state(W, Goal, RevPath) | _], _, Goal, _, RevPath, W) :- !.
-
-dijkstra_loop([state(_, Node, _) | Rest], Visited, Goal, Mode, Path, W) :-
-    member(Node, Visited), !,
-    dijkstra_loop(Rest, Visited, Goal, Mode, Path, W).
-
-dijkstra_loop([state(CurrW, CurrNode, RevPath) | Rest], Visited, Goal, Mode, Path, W) :-
-    findall(
-        state(NextW, NextNode, [NextNode | RevPath]),
-        (
-            road(CurrNode, NextNode, Dist, Time, _, _, open),
-            \+ member(NextNode, Visited),
-            step_weight(Mode, Dist, Time, StepW),
-            StepW >= 0,
-            NextW is CurrW + StepW
-        ),
-        NextStates
-    ),
-    insert_sorted(NextStates, Rest, UpdatedQueue),
-    dijkstra_loop(UpdatedQueue, [CurrNode | Visited], Goal, Mode, Path, W).
-
-step_weight(distance, Dist, _, Dist).
-step_weight(time, _, Time, Time).
-
-%---4. A* Algorithm
 
 
+%---4. A* Search Algorithm
 
+%---4.1 Terrain & hazard weights for heuristic cost
+
+surface_cost(paved, 0).
+surface_cost(unpaved, 5).
+
+hazard_cost(none, 0).
+hazard_cost(deep_potholes, 5).
+hazard_cost(broken_cisterns, 8).
+hazard_cost(falling_rocks,10).
+hazard_cost(
 
 %Display all roads
 printall:-road(A,B,C,D,E,F,G),
