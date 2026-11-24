@@ -25,10 +25,13 @@ import math
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+from pathlib import Path
+
 import os
 from dataclasses import dataclass
 
-from auth import authenticate
+# TODO: REMOVE THIS
+# from auth import authenticate
 
 ROAD_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                          "road_network.pl")
@@ -186,7 +189,7 @@ class LoginDialog(tk.Toplevel):
         if not username or not password:
             self.msg.set("Please enter both a username and a password.")
             return
-        if authenticate(username, password):
+        if self.authenticate(username, password):
             self.result = username
             self.destroy()
             return
@@ -194,13 +197,23 @@ class LoginDialog(tk.Toplevel):
         self.pw_var.set("")
         left = self.MAX_ATTEMPTS - self._attempts
         if left <= 0:
-            messagebox.showerror("Login failed",
-                                 "Too many incorrect attempts.", parent=self)
+            messagebox.showerror("Login failed", "Too many incorrect attempts.", parent=self)
             self.destroy()
         else:
             self.msg.set(f"Incorrect username or password "
                          f"({left} attempt{'s' if left != 1 else ''} left).")
             self.pw_entry.focus_set()
+            
+    def authenticate(self, username: str, password: str) -> bool:
+        source_folder = Path(__file__).resolve().parent
+        admin_file = source_folder / "admins.txt"
+    
+        with open(admin_file, "r") as file:
+            for line in file:
+                split = line.strip().split(",")
+                if split[0] == username and split[1] == password:
+                    return True
+        return False
 
 
 # --------------------------------------------------------------------
