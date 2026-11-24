@@ -265,12 +265,13 @@ def main_window():
         "Travel Time (Mins)",
         "Road Type",
         "Special Condition",
-        "Road Status"
+        "Road Status",
+        "Bidirectional"
     ]
 
     # Dropdown options
     road_type_options = [
-        "Paved", "Unpaved","Seasonally Blocked", "One Way"
+        "Paved", "Unpaved"
     ]
 
     road_status_options = [
@@ -278,7 +279,11 @@ def main_window():
     ]
 
     special_condition_options = [
-        "None","Broken Cisterns", "Severely Damaged Road", "Blocked Road", "Deep Potholes", "Falling Rocks"
+        "None","Broken Cisterns", "Severely Damaged Road", "Deep Potholes", "Falling Rocks"
+    ]
+    
+    bidirectional_options= [
+        "Yes", "No"
     ]
 
     for i, field in enumerate(fields):
@@ -326,6 +331,13 @@ def main_window():
                 to=1440,
                 increment=1,
                 width=33
+            )
+        elif field == "Bidirectional":
+            entry = Combobox(
+                form_frame,
+                values=bidirectional_options,
+                width=32,
+                state="readonly"
             )
         else:
             entry = Entry(form_frame, width=35)
