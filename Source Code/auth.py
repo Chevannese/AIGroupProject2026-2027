@@ -25,8 +25,7 @@ _ITERATIONS = 120_000
 
 # username -> (salt as hex, password hash as hex)
 ADMIN_ACCOUNTS = {
-    "admin": ("e1b6104209495e2828308aabfe4ce383",
-              "5fd8646a60f3bc3d905af018bb000e5bf1240d6d52d10bb3496aa08302332060"),
+    "admin": "password"
 }
 
 # Used so an unknown username takes as long to reject as a wrong password.
@@ -51,8 +50,10 @@ def authenticate(username: str, password: str) -> bool:
     candidate = _hash(password, bytes.fromhex(salt_hex))
     return hmac.compare_digest(candidate, bytes.fromhex(hash_hex))
     """
-    return True
-
+    if ADMIN_ACCOUNTS.get(username) != password:
+        return False
+    else:
+        return True
 
 def make_entry(password: str) -> tuple:
     """Create a (salt_hex, hash_hex) pair for a new admin password."""
