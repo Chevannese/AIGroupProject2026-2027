@@ -270,7 +270,7 @@ def main_window():
 
     # Dropdown options
     road_type_options = [
-        "Paved", "Unpaved","Seasonally Blocked", "One Way"
+        "Paved", "Unpaved"
     ]
 
     road_status_options = [
@@ -278,7 +278,7 @@ def main_window():
     ]
 
     special_condition_options = [
-        "None","Broken Cisterns", "Severely Damaged Road", "Blocked Road", "Deep Potholes", "Falling Rocks"
+        "None","Broken Cisterns", "Severely Damaged Road", "Deep Potholes", "Falling Rocks"
     ]
 
     for i, field in enumerate(fields):
