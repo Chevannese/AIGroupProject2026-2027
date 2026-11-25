@@ -1,3 +1,18 @@
+%Project: Path-Finder for Rural Roads Network in Python/Prolog
+
+%Module Name: Artificial Intelligence
+%Module Code: CMP4011
+%Group Members:
+
+%Chevannese Ellis (2301109),
+%Jonathan Blackwood (2306822),
+%Daniel Lowe (2300734),
+%Jermaine Lewis (2307120),
+%Tianna Dillion (2205580)
+
+%Due Date: Nov 27, 2026
+
+
 :- dynamic road/8.
 :- multifile road/8.
 % --- 1. Default Road Facts ---
@@ -80,11 +95,29 @@ dijkstra_loop([state(_, CurrNode, CurrD, CurrT, RevPath) | Rest], Visited, Goal,
 terrain_penalty(paved, 0).
 terrain_penalty(unpaved, 5).
 
-condition_penalty(none, 0).
-condition_penalty(deep_potholes, 5).
-condition_penalty(broken_cisterns, 8).
-condition_penalty(falling_rocks, 20).
-condition_penalty(severely_damaged,15).
+condition_cost(none, 0).
+condition_cost(heavy_traffic, 3).
+condition_cost(road_construction, 4).
+condition_cost(deep_potholes, 5).
+condition_cost(mud, 6).
+condition_cost(steep_slopes, 6).
+condition_cost(broken_cisterns, 8).
+condition_cost(erosion, 10).
+condition_cost(flooding, 12).
+condition_cost(severely_damaged, 15).
+condition_cost(severely_damaged_road, 15).
+condition_cost(falling_rocks, 20).
+condition_cost(landslides, 25).
+condition_cost(blocked_road, 30).
+condition_cost(seasonally_blocked, 30).
+
+% Any condition not listed above gets a default penalty of 5, so an unfamiliar
+% condition never makes A* silently skip an otherwise usable road.
+condition_penalty(Cond, Penalty) :-
+    (   condition_cost(Cond, P0)
+    ->  Penalty = P0
+    ;   Penalty = 5
+    ).
 
 % Constraint checks for A* criteria
 allowed_by_criterion(avoid_unpaved, unpaved, _) :- !, fail.
@@ -217,31 +250,6 @@ find_route(avoid_deep_potholes, Start, Goal, Path, TotalDist, TotalTime) :-
 
 find_route(loose_constraints, Start, Goal, Path, TotalDist, TotalTime) :-
     bfs_loose(Start, Goal, Path, TotalDist, TotalTime).
-
-
-%Display all roads
-printall:-road(A,B,C,D,E,F,G),
-         write(A),tab(10),write(B),tab(10),write(C),tab(10),write(D)
-	,tab(10),write(E),tab(10),write(F),tab(10),write(G),nl,false.
-
-prompt:-nl,write('Enter Start Point:'),read(S),
-        nl,write('Enter End Point: '),read(Des),
-        nl,write('Distance (km): '),read(Dis),
-        nl,write('Time (mins): '),read(T),
-        nl,write('Road Type: '),read(Type),
-        nl,write('Special Condition: '),read(C),
-        nl,write('Road Status: '),read(Stat),
-        nl,write('Bidirectional: '),read(Bi),
-        addroad(S,Des,Dis,T,Type,C,Stat,Bi).
-
-
-
-
-
-
-
-
-
 
 
 

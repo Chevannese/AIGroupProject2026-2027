@@ -10,7 +10,7 @@ Daniel Lowe (2300734),
 Jermaine Lewis (2307120),
 Tianna Dillion (2205580)
 
-Due Date: Nov 25, 2026
+Due Date: Nov 27, 2026
 
 
 """
@@ -32,6 +32,12 @@ from datetime import datetime
 
 
 PENALTY_CONDITIONS = {"broken_cisterns", "deep_potholes"}
+
+# Every special condition the app understands (includes the ones used in the sample data)
+SPECIAL_CONDITIONS = ["none", "broken_cisterns", "severely_damaged_road",
+                      "blocked_road", "deep_potholes", "falling_rocks",
+                      "seasonally_blocked", "heavy_traffic", "road_construction",
+                      "flooding", "mud", "erosion", "landslides", "steep_slopes"]
 PENALTY_MINUTES = 5
 
 COLUMNS = ("Source", "Destination", "Distance", "Time", "Type", "Special", "Status", "Direction")
@@ -39,9 +45,7 @@ COLUMNS = ("Source", "Destination", "Distance", "Time", "Type", "Special", "Stat
 # Dropdown values for the editable table (stored in Prolog format)
 DROPDOWNS = {
     "Type": ["paved", "unpaved"],
-    "Special": ["none", "broken_cisterns", "severely_damaged_road",
-                "blocked_road", "deep_potholes", "falling_rocks",
-                "seasonally_blocked"],
+    "Special": SPECIAL_CONDITIONS,
     "Status": ["open", "closed"],
     "Direction": ["two_way", "one_way"],
 }
@@ -56,6 +60,21 @@ FACT_PATTERN = re.compile(
 
 tree = None  # set when the Update Network tab is built
 
+def unquote(x):
+    """'May Pen' -> May Pen  (facts may quote atoms that contain spaces)"""
+    x = str(x).strip()
+    if len(x) >= 2 and x[0] == x[-1] and x[0] in "'\"":
+        x = x[1:-1]
+    return x.strip()
+
+
+def fact_name(x):
+    """Place name as written in a fact: 'May Pen' (quoted, Title Case)."""
+    atom = to_atom(unquote(x))
+    name = pretty(atom) if atom else unquote(x)
+    return "'" + name.replace("'", "") + "'"
+
+
 def fmt_time(t):
     return int(t) if float(t) == int(t) else float(t)
 
@@ -67,7 +86,7 @@ def load_road_data():
                 m = FACT_PATTERN.match(line.strip())
                 if m:
                     # facts saved without a bidirectional part are two-way roads
-                    row = list(m.groups())
+                    row = [unquote(g) if g is not None else None for g in m.groups()]
                     row[7] = "one_way" if row[7] == "no" else "two_way"
                     rows.append(tuple(row))
     return rows
@@ -76,7 +95,7 @@ def load_road_data():
 def row_to_fact(v):
     clean = lambda x: str(x).strip().lower().replace(" ", "_")
     return (
-        f"location(source({clean(v[0])}),destination({clean(v[1])}),"
+        f"location(source({fact_name(v[0])}),destination({fact_name(v[1])}),"
         f"distance({str(v[2]).strip()}),time({str(v[3]).strip()}),"
         f"type({clean(v[4])}),special({clean(v[5])}),status({clean(v[6])}),"
         f"bidirectional({'no' if str(v[7]) == 'one_way' else 'yes'}))."
@@ -231,8 +250,10 @@ INCIDENT_TYPES = {
 }
 
 # Severity ranking so a minor report never replaces a worse condition
-SEVERITY = {"none": 0, "broken_cisterns": 1, "deep_potholes": 1, "falling_rocks": 2,
-            "severely_damaged_road": 3, "blocked_road": 3, "seasonally_blocked": 3}
+SEVERITY = {"none": 0, "heavy_traffic": 0, "broken_cisterns": 1, "deep_potholes": 1,
+            "road_construction": 1, "mud": 1, "steep_slopes": 1, "falling_rocks": 2,
+            "flooding": 2, "erosion": 2, "severely_damaged_road": 3, "blocked_road": 3,
+            "seasonally_blocked": 3, "landslides": 3}
 
 # History of route requests and incident reports is kept here, not in road_network.pl
 history_path = Path("road_history.json")
@@ -634,9 +655,9 @@ os.chdir(Path(__file__).resolve().parent)
 print(os.getcwd())
 # File path
 default_road_network_data = [
-    "location(source(a),destination(b),distance(5),time(10),type(paved),special(none),status(open)).",
-    "location(source(b),destination(c),distance(3),time(15),type(unpaved),special(broken_cisterns),status(open)).",
-    "location(source(c),destination(d),distance(7),time(12),type(paved),special(deep_potholes),status(closed))."
+    "location(source('May Pen'),destination('Chapelton'),distance(15),time(25),type(paved),special(none),status(open),bidirectional(yes)).",
+    "location(source('Chapelton'),destination('Frankfield'),distance(8),time(20),type(unpaved),special(deep_potholes),status(open),bidirectional(yes)).",
+    "location(source('Frankfield'),destination('Crooked River'),distance(6),time(15),type(paved),special(falling_rocks),status(closed),bidirectional(yes))."
 ]
 # Roads added or edited in the app are saved here; road_network.pl is never written to
 file_path = Path("road_data.pl")
@@ -720,6 +741,13 @@ def condition_marker(special):
         "severely_damaged_road": ("D", "#8e2929"),
         "blocked_road": ("X", "#c0392b"),
         "seasonally_blocked": ("S", "#8e2929"),
+        "heavy_traffic": ("T", "#6b7280"),
+        "road_construction": ("W", "#d4a017"),
+        "flooding": ("F", "#1e6fa8"),
+        "mud": ("M", "#7b5a3a"),
+        "erosion": ("E", "#a0522d"),
+        "landslides": ("L", "#7a1f1f"),
+        "steep_slopes": ("H", "#4b7f52"),
     }
     return markers.get(str(special).lower())
 
@@ -756,7 +784,12 @@ def draw_map(event=None):
     route_edges = set(zip(path, path[1:]))
 
     # Draw roads first so location nodes appear above them.
-    for row in rows:
+    def draw_order(r):
+        ra, rb = to_atom(r[0]), to_atom(r[1])
+        on_route = (ra, rb) in route_edges or (r[7] == "two_way" and (rb, ra) in route_edges)
+        return (on_route, str(r[6]).lower() != "closed")
+
+    for row in sorted(rows, key=draw_order):
         a, b = to_atom(row[0]), to_atom(row[1])
         if a not in map_positions or b not in map_positions:
             continue
@@ -912,6 +945,13 @@ def show_legend(parent):
         ("#914caf", "P", "Deep potholes"),
         ("#e18a32", "R", "Risk of falling rocks"),
         ("#8e2929", "D", "Severely damaged"),
+        ("#6b7280", "T", "Heavy traffic"),
+        ("#d4a017", "W", "Road construction"),
+        ("#1e6fa8", "F", "Flooding"),
+        ("#7b5a3a", "M", "Mud"),
+        ("#a0522d", "E", "Erosion"),
+        ("#7a1f1f", "L", "Landslides"),
+        ("#4b7f52", "H", "Steep slopes"),
     ]
     for j, (colour, letter, label) in enumerate(conditions, start=len(items)):
         sample = Canvas(legend, width=62, height=22, highlightthickness=0)
@@ -1052,10 +1092,7 @@ def main_window(role="user"):
         ]
         options = {
             "Road Type": ["Paved", "Unpaved"],
-            "Special Condition": [
-                "None", "Broken Cisterns", "Severely Damaged Road",
-                "Deep Potholes", "Falling Rocks",
-            ],
+            "Special Condition": [c.replace("_", " ").title() for c in SPECIAL_CONDITIONS],
             "Road Status": ["Open", "Closed"],
             "Direction": ["Two-way", "One-way"],
         }
@@ -1185,17 +1222,9 @@ def submit_form():
     distance = str(fmt_time(distance_value))
     travel_time = str(fmt_time(time_value + penalty))
 
-    # Create Prolog fact
-    fact = (
-        f"location(source({source}),"
-        f"destination({destination}),"
-        f"distance({distance}),"
-        f"time({travel_time}),"
-        f"type({road_type}),"
-        f"special({special}),"
-        f"status({status}),"
-        f"bidirectional({bidirectional}))."
-    )
+    # Create Prolog fact (same format as the sample data: 'May Pen' quoted names)
+    fact = row_to_fact((source, destination, distance, travel_time, road_type,
+                        special, status, "one_way" if bidirectional == "no" else "two_way"))
 
     # Write to file
     with open(file_path, "a") as file:
