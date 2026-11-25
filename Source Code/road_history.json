@@ -1,0 +1,8 @@
+{"criterion": "shortest_distance", "start": "a", "goal": "b", "status": "found", "distance": 5, "time": 10, "kind": "routes", "when": "2026-11-24 22:06:49"}
+{"criterion": "fastest_route", "start": "a", "goal": "b", "status": "found", "distance": 5, "time": 10, "kind": "routes", "when": "2026-11-24 22:06:52"}
+{"criterion": "avoid_closed", "start": "a", "goal": "b", "status": "found", "distance": 5, "time": 10, "kind": "routes", "when": "2026-11-24 22:06:55"}
+{"criterion": "avoid_closed", "start": "a", "goal": "d", "status": "no_path", "distance": 0, "time": 0, "kind": "routes", "when": "2026-11-24 22:07:02"}
+{"criterion": "shortest_distance", "start": "a", "goal": "d", "status": "no_path", "distance": 0, "time": 0, "kind": "routes", "when": "2026-11-24 22:07:09"}
+{"criterion": "loose_constraints", "start": "a", "goal": "d", "status": "found", "distance": 15, "time": 37, "kind": "routes", "when": "2026-11-24 22:07:16"}
+{"criterion": "avoid_deep_potholes", "start": "a", "goal": "d", "status": "no_path", "distance": 0, "time": 0, "kind": "routes", "when": "2026-11-24 22:07:26"}
+{"criterion": "avoid_deep_potholes", "start": "a", "goal": "b", "status": "found", "distance": 5, "time": 10, "kind": "routes", "when": "2026-11-24 22:08:29"}

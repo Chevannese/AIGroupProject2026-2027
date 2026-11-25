@@ -1054,8 +1054,7 @@ def main_window(role="user"):
             "Road Type": ["Paved", "Unpaved"],
             "Special Condition": [
                 "None", "Broken Cisterns", "Severely Damaged Road",
-                "Blocked Road", "Deep Potholes", "Falling Rocks",
-                "Seasonally Blocked"
+                "Deep Potholes", "Falling Rocks",
             ],
             "Road Status": ["Open", "Closed"],
             "Direction": ["Two-way", "One-way"],
