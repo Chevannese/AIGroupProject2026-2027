@@ -1,7 +1,7 @@
 """
 Project: Path-Finder for Rural Roads Network in Python/Prolog
 Module Name: Artificial Intelligence
-Module Code: CIT3003
+Module Code: CMP4011
 
 Group Members:
 Chevannese Ellis (2301109),
